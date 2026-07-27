@@ -1,0 +1,39 @@
+/**:
+  ros__parameters:
+    # 点云在哪个坐标系 → 变换到哪个坐标系做 2D 投影
+    # B2 TF 链: odom → base_link → lidar_link → rslidar
+    # RoboSense SDK 发布点云使用 lidar_link 帧
+    target_frame: base_link
+
+    # TF 查找容忍时间(秒) — 点云时间戳与 TF 时间允许多大偏差
+    # 增加容差以处理时间戳偏差问题
+    transform_tolerance: 1.0
+
+    # # 使用最新的 TF 变换，不严格匹配时间戳
+    # use_latest_transform: true
+
+    # ----- 高度裁剪 (在 target_frame 坐标系中) -----
+    # B2 lidar_link 在 base_link 上方约 0.18m，雷达扫描面约在 z=0.18m
+    # 保留 z = -0.2m ~ 1.0m (放宽范围，后续再精确调整)
+    min_height: -0.25
+    max_height: 1.0
+
+    # ----- 水平角度范围 -----
+    angle_min: -3.14    # -180 度
+    angle_max: 3.14     # +180 度
+
+    # ----- 角度增量 (分辨率) -----
+    angle_increment: 0.0087
+
+    # ----- 扫描时间 (秒) -----
+    scan_time: 0.1
+
+    # ----- 距离范围 (米) -----
+    range_min: 0.3
+    range_max: 10.0
+
+    # ----- 无效扫描点填充 -----
+    use_inf: true
+    inf_epsilon: 1.0
+
+    concurrency_level: 1

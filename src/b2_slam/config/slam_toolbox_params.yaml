@@ -1,0 +1,75 @@
+/**:
+  ros__parameters:
+    # ----- 工作模式: asynchronous (异步在线建图) -----
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: None
+
+    # ----- 坐标系 (对齐 B2 driver.yaml) -----
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_link
+    scan_topic: /scan
+    mode: mapping
+
+    # ---- QoS 匹配 ----
+    # /scan 上游用 BEST_EFFORT,这里必须对齐,否则订不到
+    # ⚠ slam_toolbox 只认扁平的点分 key 格式,嵌套写法会被静默忽略
+    qos_overrides:
+      "/scan.subscription.reliability": "best_effort"
+      "/scan.subscription.durability": "volatile"
+      "/scan.subscription.history": "keep_last"
+      "/scan.subscription.depth": 10
+
+    # ----- 调试 -----
+    debug_logging: false
+    throttle_scans: 1
+    transform_publish_period: 0.02  # 50Hz
+    map_update_interval: 0.4        # 快速更新地图(Go2 参考值)
+    resolution: 0.05                # 5cm 分辨率
+    max_laser_range: 10.0           # 10m，远了噪声多
+    minimum_time_interval: 0.5
+    transform_timeout: 0.4
+    tf_buffer_duration: 30.0
+    stack_size_to_use: 40000000     # 大堆栈序列化大地图
+    enable_interactive_mode: true
+
+    # ----- 扫描匹配 -----
+    use_scan_matching: true
+    use_scan_barycenter: true
+    minimum_travel_distance: 0.15   # 移动15cm就加关键帧
+    minimum_travel_heading: 0.2     # 转动0.2rad就加关键帧
+    scan_buffer_size: 30
+    scan_buffer_maximum_scan_distance: 10.0
+    link_match_minimum_response_fine: 0.1
+    link_scan_maximum_distance: 1.5
+    loop_search_maximum_distance: 5.0
+    do_loop_closing: true
+    loop_match_minimum_chain_size: 10
+    loop_match_maximum_variance_coarse: 1.5
+    loop_match_minimum_response_coarse: 0.35
+    loop_match_minimum_response_fine: 0.35
+
+    # ----- 相关性搜索参数 -----
+    correlation_search_space_dimension: 0.5
+    correlation_search_space_resolution: 0.01
+    correlation_search_space_smear_deviation: 0.1
+
+    # ----- 回环检测相关性参数 -----
+    loop_search_space_dimension: 8.0
+    loop_search_space_resolution: 0.05
+    loop_search_space_smear_deviation: 0.03
+
+    # ----- 扫描匹配器 -----
+    distance_variance_penalty: 0.5
+    angle_variance_penalty: 1.0
+
+    fine_search_angle_offset: 0.00349
+    coarse_search_angle_offset: 0.349
+    coarse_angle_resolution: 0.0349
+    minimum_angle_penalty: 0.9
+    minimum_distance_penalty: 0.5
+    use_response_expansion: true
