@@ -6,15 +6,15 @@
     target_frame: base_link
 
     # TF 查找容忍时间(秒) — 点云时间戳与 TF 时间允许多大偏差
-    # 增加容差以处理时间戳偏差问题
-    transform_tolerance: 1.0
+    # 容差过大会掩盖时间同步错误；暂用 0.30 秒并由安全监视器检查数据新鲜度。
+    transform_tolerance: 0.30
 
     # # 使用最新的 TF 变换，不严格匹配时间戳
     # use_latest_transform: true
 
     # ----- 高度裁剪 (在 target_frame 坐标系中) -----
     # B2 lidar_link 在 base_link 上方约 0.18m，雷达扫描面约在 z=0.18m
-    # 保留 z = -0.2m ~ 1.0m (放宽范围，后续再精确调整)
+    # 保留 z = -0.25m ~ 1.0m；实机需检查是否包含腿部自反射。
     min_height: -0.25
     max_height: 1.0
 

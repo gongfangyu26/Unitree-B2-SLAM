@@ -1,0 +1,16 @@
+photo_quality_node:
+  ros__parameters:
+    # 这些是功能验证初值，必须用真实相机和目标图片重新标定。
+    require_target_bbox: true
+    bbox_sync_tolerance_sec: 0.20
+    capture_wait_timeout_sec: 2.0
+    min_target_confidence: 0.60
+    min_target_area_ratio: 0.03
+    max_target_area_ratio: 0.65
+    min_roi_width_px: 24
+    min_roi_height_px: 24
+    min_blur_score: 80.0
+    min_brightness: 45.0
+    max_brightness: 215.0
+    max_dark_ratio: 0.35
+    max_bright_ratio: 0.25

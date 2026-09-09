@@ -2,10 +2,12 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>b2_navigation</name>
-  <version>0.0.0</version>
-  <description>B2 Navigation: Nav2 baseline with AMCL localization, global planning, local control.</description>
+  <version>0.1.0</version>
+  <description>宇树 B2 的 Nav2 定位、全局规划和局部避障基线。</description>
   <maintainer email="nvidia@todo.todo">nvidia</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
 
   <depend>rclpy</depend>
 
@@ -19,6 +21,8 @@
   <exec_depend>pointcloud_to_laserscan</exec_depend>
   <exec_depend>rviz2</exec_depend>
   <exec_depend>ros2launch</exec_depend>
+  <exec_depend>b2_driver_py</exec_depend>
+  <exec_depend>b2_slam</exec_depend>
 
   <test_depend>ament_copyright</test_depend>
   <test_depend>ament_flake8</test_depend>

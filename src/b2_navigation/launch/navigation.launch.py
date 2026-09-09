@@ -1,6 +1,7 @@
 """
-实机 Nav2 2D 基线:
-驱动 + 点云转 LaserScan + AMCL + Nav2 + RViz
+实机 Nav2 二维导航基线.
+
+驱动、点云转激光、定位、规划和局部避障。
 
 参考:
   /home/nvidia/b2_code/navigation.launch.py (Go2 参考)
@@ -12,19 +13,24 @@ from pathlib import Path
 from ament_index_python.packages import get_package_share_directory
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, TimerAction
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description() -> LaunchDescription:
     map_yaml = LaunchConfiguration("map")
     use_rviz = LaunchConfiguration("use_rviz")
+    start_driver = LaunchConfiguration("start_driver")
+    use_amcl = LaunchConfiguration("use_amcl")
+    cloud_topic = LaunchConfiguration("cloud_topic")
+    cloud_backdate = LaunchConfiguration("cloud_backdate_sec")
 
     nav_share = Path(get_package_share_directory("b2_navigation"))
     slam_share = Path(get_package_share_directory("b2_slam"))
-    driver_share = Path(get_package_share_directory("b2_driver"))
+    driver_share = Path(get_package_share_directory("b2_driver_py"))
 
     nav2_params = str(nav_share / "config" / "nav2_params.yaml")
     scan_params = str(slam_share / "config" / "pointcloud_to_laserscan_params.yaml")
@@ -35,19 +41,22 @@ def generate_launch_description() -> LaunchDescription:
     driver = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(driver_launch),
         launch_arguments={"use_rviz": "false"}.items(),
+        condition=IfCondition(start_driver),
     )
 
-    # 2) 点云时间戳修复 (B2 雷达话题是 /rslidar_points)
+    # 2) 点云接收时间兼容；默认话题来自 2026-09-08 实机清单。
     timestamp_fix = Node(
         package="b2_slam",
         executable="pointcloud_timestamp_fix",
         name="pointcloud_timestamp_fix",
         parameters=[
             {
-                "input_topic": "/rslidar_points",
+                "input_topic": cloud_topic,
                 "output_topic": "/utlidar/cloud_fixed",
-                # /odom 只有 20 Hz,scan 时间戳回退 0.10s,AMCL 查 odom→base 才追得上
-                "backdate_sec": 0.10,
+                # 仅用于当前无硬件同步阶段；取得 rosbag 后应按实测调整。
+                "backdate_sec": ParameterValue(
+                    cloud_backdate, value_type=float
+                ),
             }
         ],
         output="screen",
@@ -81,6 +90,7 @@ def generate_launch_description() -> LaunchDescription:
         name="amcl",
         parameters=[nav2_params],
         output="screen",
+        condition=IfCondition(use_amcl),
     )
 
     localization_lifecycle = Node(
@@ -95,6 +105,23 @@ def generate_launch_description() -> LaunchDescription:
             }
         ],
         output="screen",
+        condition=IfCondition(use_amcl),
+    )
+
+    # 使用 3D RTAB-Map 定位时，只管理二维静态地图，不启动 AMCL。
+    map_only_lifecycle = Node(
+        package="nav2_lifecycle_manager",
+        executable="lifecycle_manager",
+        name="lifecycle_manager_map_only",
+        parameters=[
+            {
+                "use_sim_time": False,
+                "autostart": True,
+                "node_names": ["map_server"],
+            }
+        ],
+        output="screen",
+        condition=UnlessCondition(use_amcl),
     )
 
     # 5) 导航相关: planner + controller + behavior + bt + 专属 lifecycle
@@ -176,12 +203,32 @@ def generate_launch_description() -> LaunchDescription:
         [
             DeclareLaunchArgument(
                 "map",
-                description="Path to the chapter-11 saved map yaml file.",
+                description="Nav2 使用的二维占据地图 YAML 文件。",
             ),
             DeclareLaunchArgument(
                 "use_rviz",
                 default_value="true",
-                description="Whether to launch Nav2 RViz.",
+                description="是否启动 Nav2 的 RViz 界面。",
+            ),
+            DeclareLaunchArgument(
+                "start_driver",
+                default_value="true",
+                description="是否同时启动 B2 Python 驱动和安全速度桥。",
+            ),
+            DeclareLaunchArgument(
+                "use_amcl",
+                default_value="true",
+                description="true 使用二维 AMCL；false 时由外部 3D 定位发布 map 到 odom。",
+            ),
+            DeclareLaunchArgument(
+                "cloud_topic",
+                default_value="/rslidar_points",
+                description="用于二维障碍投影的 PointCloud2 输入话题。",
+            ),
+            DeclareLaunchArgument(
+                "cloud_backdate_sec",
+                default_value="0.05",
+                description="点云接收时间回退量，仅用于临时 TF 兼容。",
             ),
             rviz,
             driver,
@@ -190,6 +237,7 @@ def generate_launch_description() -> LaunchDescription:
             map_server,
             amcl,
             localization_lifecycle,
+            map_only_lifecycle,
             delayed_navigation,
         ]
     )

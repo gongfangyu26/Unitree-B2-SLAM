@@ -3,7 +3,7 @@
 <package format="3">
   <name>b2_description</name>
   <version>0.0.0</version>
-  <description>TODO: Package description</description>
+  <description>宇树 B2 的 URDF、网格模型与机器人状态发布启动文件。</description>
   <maintainer email="lei@todo.todo">lei</maintainer>
   <license>TODO: License declaration</license>
 

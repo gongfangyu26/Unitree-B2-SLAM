@@ -5,7 +5,7 @@ package_name = "b2_slam"
 
 setup(
     name=package_name,
-    version="0.0.0",
+    version="0.1.0",
     packages=find_packages(exclude=["test"]),
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
@@ -18,8 +18,8 @@ setup(
     zip_safe=True,
     maintainer="nvidia",
     maintainer_email="nvidia@todo.todo",
-    description="B2 SLAM: pointcloud timestamp fix + 3D-to-2D + slam_toolbox",
-    license="TODO: License declaration",
+    description="宇树 B2 点云时间兼容、二维投影与 slam_toolbox 功能包",
+    license="Apache-2.0",
     extras_require={
         "test": [
             "pytest",

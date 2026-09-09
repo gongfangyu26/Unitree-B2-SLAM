@@ -6,7 +6,7 @@ package_name = 'b2_driver_py'
 
 setup(
     name=package_name,
-    version='0.0.0',
+    version='0.1.0',
     packages=find_packages(exclude=['test']),
     data_files=[
         ('share/ament_index/resource_index/packages',
@@ -20,8 +20,8 @@ setup(
     zip_safe=True,
     maintainer='lei',
     maintainer_email='lei@todo.todo',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    description='宇树 B2 状态到里程计、TF 和关节状态的 Python 转换节点',
+    license='Apache-2.0',
     extras_require={
         'test': [
             'pytest',

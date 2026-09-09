@@ -6,7 +6,7 @@ package_name = "b2_navigation"
 
 setup(
     name=package_name,
-    version="0.0.0",
+    version="0.1.0",
     packages=find_packages(exclude=["test"]),
     data_files=[
         ("share/ament_index/resource_index/packages", ["resource/" + package_name]),
@@ -19,8 +19,8 @@ setup(
     zip_safe=True,
     maintainer="nvidia",
     maintainer_email="nvidia@todo.todo",
-    description="B2 Navigation: Nav2 baseline with AMCL, planning, control for B2 robot.",
-    license="TODO: License declaration",
+    description="宇树 B2 的 Nav2 定位、全局规划和局部避障基线",
+    license="Apache-2.0",
     extras_require={
         "test": [
             "pytest",

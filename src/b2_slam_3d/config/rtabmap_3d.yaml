@@ -1,0 +1,73 @@
+rtabmap:
+  ros__parameters:
+    # 坐标系
+    frame_id: base_link
+    odom_frame_id: odom
+    map_frame_id: map
+    publish_tf: true
+    wait_for_transform: 0.30
+
+    # 输入数据
+    subscribe_scan: false
+    subscribe_scan_cloud: true
+    qos_scan: 2
+    subscribe_rgb: false
+    subscribe_depth: false
+    subscribe_rgbd: false
+    subscribe_stereo: false
+    subscribe_odom_info: false
+    approx_sync: true
+    topic_queue_size: 20
+    sync_queue_size: 20
+
+    # 数据库和建图
+    database_path: ~/.ros/b2_rtabmap_3d.db
+
+    # RTAB-Map 核心参数使用字符串格式。
+    Mem/IncrementalMemory: "true"
+    Mem/InitWMWithAllNodes: "false"
+    Mem/NotLinkedNodesKept: "false"
+
+    # 使用纯激光 ICP 配准；坡道场景必须保留完整六自由度。
+    Reg/Strategy: "1"
+    Reg/Force3DoF: "false"
+
+    # 运动更新阈值是下一次小范围 rosbag 的待验证初值，不代表已经通过运动建图。
+    RGBD/LinearUpdate: "0.15"
+    RGBD/AngularUpdate: "0.08"
+    RGBD/ProximityBySpace: "true"
+    RGBD/ProximityPathMaxNeighbors: "10"
+    RGBD/OptimizeFromGraphEnd: "false"
+    RGBD/OptimizeMaxError: "1.0"
+
+    # ICP 先使用保守参数，获得真实数据包后再标定。
+    Icp/VoxelSize: "0.10"
+    Icp/PointToPlane: "true"
+    Icp/PointToPlaneK: "20"
+    Icp/MaxCorrespondenceDistance: "1.0"
+    Icp/CorrespondenceRatio: "0.15"
+    Icp/Iterations: "30"
+    Icp/Epsilon: "0.001"
+    Icp/RangeMin: "0.35"
+    Icp/RangeMax: "40.0"
+
+    # 三维占据地图和地形参数
+    Grid/Sensor: "0"
+    Grid/FromDepth: "false"
+    Grid/3D: "true"
+    Grid/RayTracing: "true"
+    Grid/CellSize: "0.10"
+    Grid/RangeMin: "0.35"
+    Grid/RangeMax: "30.0"
+    Grid/NormalsSegmentation: "true"
+    Grid/NormalK: "20"
+    Grid/MaxGroundAngle: "45"
+    Grid/ClusterRadius: "0.20"
+    Grid/MinClusterSize: "10"
+    Grid/GroundIsObstacle: "false"
+    Grid/NoiseFilteringRadius: "0.10"
+    Grid/NoiseFilteringMinNeighbors: "3"
+
+    # 全局栅格更新参数是静止链路通过后的初始值，需用运动地图检查重影和漂移。
+    GridGlobal/UpdateError: "0.02"
+    GridGlobal/MaxNodes: "0"

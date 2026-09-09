@@ -1,0 +1,28 @@
+# 这里只是格式示例，坐标不能直接用于真机。
+# 每个观测位姿都必须先在 RViz 中验证处于可通行区域，并确认不会碰撞设备。
+frame_id: map
+waypoints:
+  - name: route_a_1
+    inspect: false
+    poses:
+      - {x: 0.60, y: 0.20, yaw_deg: 0.0}
+
+  - name: target_a
+    inspect: true
+    poses:
+      # 第一项是正常巡检位姿，后续项是不清晰时依次尝试的候选位姿。
+      - {x: 1.00, y: 0.50, yaw_deg: 0.0}
+      - {x: 1.20, y: 0.50, yaw_deg: 0.0}
+      - {x: 1.10, y: 0.75, yaw_deg: -10.0}
+
+  - name: route_b_1
+    inspect: false
+    poses:
+      - {x: 2.50, y: 0.60, yaw_deg: 0.0}
+
+  - name: target_b
+    inspect: true
+    poses:
+      - {x: 4.20, y: 0.80, yaw_deg: 90.0}
+      - {x: 4.00, y: 1.00, yaw_deg: 75.0}
+      - {x: 4.40, y: 1.00, yaw_deg: 105.0}

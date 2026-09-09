@@ -2,5 +2,14 @@
   ros__parameters:
     base_frame: base_link
     odom_frame: odom
-    publish_tf: 'true'
+    publish_tf: true
     use_sim_time: false
+    sport_state_topic: /lf/sportmodestate
+    low_state_topic: /lf/lowstate
+    state_timeout_sec: 0.50
+    # 下列协方差是启动阶段的保守初值，不是厂家标定值。
+    # 取得重复路线数据后，应根据实测误差方差重新填写。
+    position_variance: 0.0025
+    orientation_variance: 0.01
+    linear_velocity_variance: 0.01
+    angular_velocity_variance: 0.04

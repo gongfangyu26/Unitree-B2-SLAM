@@ -1,7 +1,7 @@
 # ============================================================
-# B2 Navigation 参数 — Nav2 基线配置
-# 适配机身尺寸：1098mm × 450mm × 645mm
-# 修复：自身被代价地图识别为障碍物 | 优化雷达近距过滤、机器人半径
+# B2 Navigation 参数 — 首轮实机验证的低速安全基线
+# 官方机身外形约 1098mm × 450mm；下方 footprint 额外覆盖摆腿空间。
+# 该 footprint 仍须用实机俯视尺寸、步态和制动距离重新标定。
 # ============================================================
 
 amcl:
@@ -31,7 +31,7 @@ amcl:
     lambda_short: 0.1
     laser_likelihood_max_dist: 2.0
     laser_max_range: 10.0
-    laser_min_range: 0.05
+    laser_min_range: 0.30
     max_beams: 360
     sigma_hit: 0.15
     z_hit: 0.85
@@ -137,41 +137,43 @@ controller_server:
 
     progress_checker:
       plugin: "nav2_controller::SimpleProgressChecker"
-      required_movement_radius: 0.5
-      movement_time_allowance: 10.0
+      required_movement_radius: 0.25
+      movement_time_allowance: 15.0
 
     general_goal_checker:
       stateful: true
       plugin: "nav2_controller::SimpleGoalChecker"
-      xy_goal_tolerance: 0.25
-      yaw_goal_tolerance: 0.25
+      xy_goal_tolerance: 0.20
+      yaw_goal_tolerance: 0.20
 
     FollowPath:
       plugin: "dwb_core::DWBLocalPlanner"
       debug_trajectory_details: true
-      min_vel_x: -0.35
-      min_vel_y: -0.35
-      max_vel_x: 0.35
-      max_vel_y: 0.35
-      max_vel_theta: 0.50
+      # 2026-09-09 已完成单轴后退和横移验收，但 Nav2 闭环尚未实机验证。
+      # 当前 DWB 仍禁用横移采样，先完成前进/转向的小范围运动建图与导航验证。
+      min_vel_x: 0.0
+      min_vel_y: 0.0
+      max_vel_x: 0.30
+      max_vel_y: 0.0
+      max_vel_theta: 0.20
       min_speed_xy: 0.0
-      max_speed_xy: 0.35
+      max_speed_xy: 0.30
       min_speed_theta: 0.0
-      acc_lim_x: 0.35
-      acc_lim_y: 0.35
-      acc_lim_theta: 1.0
+      acc_lim_x: 0.25
+      acc_lim_y: 0.20
+      acc_lim_theta: 0.40
       decel_lim_x: -0.35
-      decel_lim_y: -0.35
-      decel_lim_theta: -1.0
-      vx_samples: 20
-      vy_samples: 20
-      vth_samples: 40
-      sim_time: 1.7
+      decel_lim_y: -0.30
+      decel_lim_theta: -0.80
+      vx_samples: 15
+      vy_samples: 1
+      vth_samples: 30
+      sim_time: 2.0
       linear_granularity: 0.05
       angular_granularity: 0.025
       transform_tolerance: 0.2
-      xy_goal_tolerance: 0.25
-      trans_stopped_velocity: 0.25
+      xy_goal_tolerance: 0.20
+      trans_stopped_velocity: 0.05
       short_circuit_trajectory_evaluation: true
       stateful: true
       critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
@@ -195,10 +197,11 @@ local_costmap:
       global_frame: odom
       robot_base_frame: base_link
       rolling_window: true
-      width: 4
-      height: 4
+      width: 6
+      height: 6
       resolution: 0.05
-      robot_radius: 0.48
+      footprint: "[[0.70, 0.40], [0.70, -0.40], [-0.70, -0.40], [-0.70, 0.40]]"
+      footprint_padding: 0.05
       transform_tolerance: 0.5
       plugins: ["voxel_layer", "inflation_layer"]
 
@@ -218,15 +221,15 @@ local_costmap:
           clearing: true
           marking: true
           data_type: "LaserScan"
-          raytrace_max_range: 3.0
+          raytrace_max_range: 4.0
           raytrace_min_range: 0.0
-          obstacle_max_range: 2.0
-          obstacle_min_range: 0.50
+          obstacle_max_range: 3.0
+          obstacle_min_range: 0.30
 
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 1.5
-        inflation_radius: 0.25
+        cost_scaling_factor: 2.5
+        inflation_radius: 0.45
 
       static_layer:
         plugin: "nav2_costmap_2d::StaticLayer"
@@ -244,7 +247,8 @@ global_costmap:
       robot_base_frame: base_link
       resolution: 0.05
       track_unknown_space: true
-      robot_radius: 0.48
+      footprint: "[[0.70, 0.40], [0.70, -0.40], [-0.70, -0.40], [-0.70, 0.40]]"
+      footprint_padding: 0.05
       transform_tolerance: 0.5
       plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
 
@@ -262,28 +266,28 @@ global_costmap:
           clearing: true
           marking: true
           data_type: "LaserScan"
-          raytrace_max_range: 3.0
+          raytrace_max_range: 4.0
           raytrace_min_range: 0.0
-          obstacle_max_range: 2.0
-          obstacle_min_range: 0.50
+          obstacle_max_range: 3.0
+          obstacle_min_range: 0.30
 
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 1.5
-        inflation_radius: 0.25
+        cost_scaling_factor: 2.5
+        inflation_radius: 0.45
 
       always_send_full_costmap: true
 
 planner_server:
   ros__parameters:
     use_sim_time: false
-    expected_planner_frequency: 20.0
+    expected_planner_frequency: 2.0
     planner_plugins: ["GridBased"]
     GridBased:
       plugin: "nav2_navfn_planner/NavfnPlanner"
       tolerance: 0.5
       use_astar: false
-      allow_unknown: true
+      allow_unknown: false
 
 behavior_server:
   ros__parameters:
@@ -295,9 +299,10 @@ behavior_server:
     cycle_frequency: 8.0
     transform_tolerance: 0.1
     simulate_ahead_time: 1.0
-    max_rotational_vel: 1.0
-    min_rotational_vel: 0.4
-    rotational_acc_lim: 3.2
+    max_rotational_vel: 0.20
+    min_rotational_vel: 0.10
+    rotational_acc_lim: 0.40
+    # 后退单轴接口已实机验收；BackUp 恢复行为本身仍需在 Nav2 阶段单独验收。
     behavior_plugins: ["spin", "backup", "drive_on_heading", "wait"]
 
     spin:

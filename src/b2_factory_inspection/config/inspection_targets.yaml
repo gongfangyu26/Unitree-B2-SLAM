@@ -1,0 +1,17 @@
+# 户外功能验证时把标记贴在设备目标板中心附近。
+# ROI 缩放和偏移均以 ArUco 标记的宽、高为单位；下列初值会评价标记周围的
+# 设备目标板，而不是只评价黑白标记本身。现场需按目标板尺寸调整。
+# 工厂阶段应把本节点替换为真实设备检测节点，输出接口保持不变。
+targets:
+  target_a:
+    marker_id: 10
+    roi_scale_x: 4.0
+    roi_scale_y: 3.0
+    roi_offset_x: 0.0
+    roi_offset_y: 0.0
+  target_b:
+    marker_id: 20
+    roi_scale_x: 4.0
+    roi_scale_y: 3.0
+    roi_offset_x: 0.0
+    roi_offset_y: 0.0

@@ -2,10 +2,12 @@
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>b2_slam</name>
-  <version>0.0.0</version>
-  <description>B2 SLAM: pointcloud timestamp fix + 3D-to-2D projection + slam_toolbox mapping</description>
+  <version>0.1.0</version>
+  <description>宇树 B2 点云时间兼容、二维投影与 slam_toolbox 功能包。</description>
   <maintainer email="nvidia@todo.todo">nvidia</maintainer>
-  <license>TODO: License declaration</license>
+  <license>Apache-2.0</license>
+
+  <buildtool_depend>ament_python</buildtool_depend>
 
   <depend>rclpy</depend>
   <depend>sensor_msgs</depend>
@@ -13,6 +15,10 @@
 
   <exec_depend>pointcloud_to_laserscan</exec_depend>
   <exec_depend>slam_toolbox</exec_depend>
+  <exec_depend>ament_index_python</exec_depend>
+  <exec_depend>launch</exec_depend>
+  <exec_depend>launch_ros</exec_depend>
+  <exec_depend>b2_driver_py</exec_depend>
   <exec_depend>rviz2</exec_depend>
   <exec_depend>ros2launch</exec_depend>
 

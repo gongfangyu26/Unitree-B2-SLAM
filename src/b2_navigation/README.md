@@ -1,5 +1,13 @@
 # b2_navigation 功能包
 
+> 当前实机基线见 `docs/B2_DEBUG_LOG_2026-09-08.md`，下一阶段命令见
+> `docs/SLAM_INSPECTION_NEXT_STAGE.md`。旧示例中的 `/home/nvidia/b2_code` 路径仅供
+> 历史参考，不是当前工作空间路径。
+
+2026-09-08 实测 B2 需要 `0.30 m/s` 才能可靠前进。当前 Nav2 上限为
+`0.30 m/s`、转向上限为 `0.20 rad/s`。后退和左右横移已完成单轴实机验收，
+但 DWB 横移采样、BackUp 行为和 Nav2 闭环仍保持待测状态。
+
 ## 概述
 
 `b2_navigation` 是专为 Unitree B2 机器狗设计的 ROS 2 导航功能包，基于 **Nav2** 框架实现完整的 2D 自主导航能力。该包集成了 AMCL 定位、全局路径规划、局部路径跟踪和行为树导航等核心功能。
