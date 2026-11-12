@@ -14,7 +14,13 @@ import math
 import rclpy
 from rclpy.duration import Duration
 from rclpy.node import Node
-from rclpy.qos import qos_profile_sensor_data
+from rclpy.qos import (
+    DurabilityPolicy,
+    HistoryPolicy,
+    QoSProfile,
+    ReliabilityPolicy,
+    qos_profile_sensor_data,
+)
 from sensor_msgs.msg import PointCloud2
 
 
@@ -27,9 +33,27 @@ class PointCloudTimestampFix(Node):
         self.declare_parameter("input_topic", "/rslidar_points")
         self.declare_parameter("output_topic", "/utlidar/cloud_fixed")
         self.declare_parameter("backdate_sec", 0.05)
+        self.declare_parameter("input_reliability", "best_effort")
 
         input_topic = str(self.get_parameter("input_topic").value)
         output_topic = str(self.get_parameter("output_topic").value)
+        input_reliability = str(
+            self.get_parameter("input_reliability").value
+        ).strip().lower()
+        reliability_policies = {
+            "best_effort": ReliabilityPolicy.BEST_EFFORT,
+            "reliable": ReliabilityPolicy.RELIABLE,
+        }
+        if input_reliability not in reliability_policies:
+            raise RuntimeError(
+                "input_reliability 必须是 best_effort 或 reliable"
+            )
+        input_qos = QoSProfile(
+            history=HistoryPolicy.KEEP_LAST,
+            depth=5,
+            reliability=reliability_policies[input_reliability],
+            durability=DurabilityPolicy.VOLATILE,
+        )
 
         backdate_sec = float(self.get_parameter("backdate_sec").value)
         if not math.isfinite(backdate_sec) or backdate_sec < 0.0:
@@ -40,7 +64,7 @@ class PointCloudTimestampFix(Node):
             PointCloud2,
             input_topic,
             self.pointcloud_callback,
-            qos_profile_sensor_data,
+            input_qos,
         )
         self.publisher = self.create_publisher(
             PointCloud2, output_topic, qos_profile_sensor_data
@@ -53,6 +77,7 @@ class PointCloudTimestampFix(Node):
 
         self.get_logger().info(
             f"点云接收时间兼容节点已启动：{input_topic} → {output_topic}"
+            f"，输入可靠性={input_reliability}"
         )
 
     def _log_status(self):

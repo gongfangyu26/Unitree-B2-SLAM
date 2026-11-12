@@ -15,6 +15,7 @@ def generate_launch_description() -> LaunchDescription:
     slam3d_launch = str(slam3d_share / "launch" / "slam_3d.launch.py")
 
     use_rtabmap_viz = LaunchConfiguration("use_rtabmap_viz")
+    use_rviz = LaunchConfiguration("use_rviz")
     delete_db = LaunchConfiguration("delete_db")
     cloud_backdate_sec = LaunchConfiguration("cloud_backdate_sec")
     database_path = LaunchConfiguration("database_path")
@@ -28,6 +29,7 @@ def generate_launch_description() -> LaunchDescription:
         PythonLaunchDescriptionSource(slam3d_launch),
         launch_arguments={
             "use_rtabmap_viz": use_rtabmap_viz,
+            "use_rviz": use_rviz,
             "delete_db": delete_db,
             "cloud_backdate_sec": cloud_backdate_sec,
             "database_path": database_path,
@@ -36,6 +38,9 @@ def generate_launch_description() -> LaunchDescription:
             "lidar_frame": lidar_frame,
             "publish_lidar_alias": publish_lidar_alias,
             "start_driver": start_driver,
+            "grid_3d": LaunchConfiguration("grid_3d"),
+            "grid_max_obstacle_height": LaunchConfiguration("grid_max_obstacle_height"),
+            "grid_ray_tracing": LaunchConfiguration("grid_ray_tracing"),
         }.items(),
     )
 
@@ -45,6 +50,11 @@ def generate_launch_description() -> LaunchDescription:
                 "use_rtabmap_viz",
                 default_value="true",
                 description="是否显示 RTAB-Map 可视化窗口。",
+            ),
+            DeclareLaunchArgument(
+                "use_rviz",
+                default_value="false",
+                description="是否显示项目三维点云 RViz 窗口。",
             ),
             DeclareLaunchArgument(
                 "delete_db",
@@ -85,6 +95,18 @@ def generate_launch_description() -> LaunchDescription:
                 "start_driver",
                 default_value="true",
                 description="是否同时启动 B2 Python 状态转换。",
+            ),
+            DeclareLaunchArgument(
+                "grid_3d", default_value="false", choices=["true", "false"],
+                description="true 用于保存具有高度信息的三维地图点云。",
+            ),
+            DeclareLaunchArgument(
+                "grid_max_obstacle_height", default_value="1.0",
+                description="障碍点高度上限（米），0 关闭高度裁剪。",
+            ),
+            DeclareLaunchArgument(
+                "grid_ray_tracing", default_value="true", choices=["true", "false"],
+                description="是否进行地图射线追踪。",
             ),
             slam,
         ]

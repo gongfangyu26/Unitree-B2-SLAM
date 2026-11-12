@@ -1,4 +1,4 @@
-rtabmap:
+/rtabmap/rtabmap:
   ros__parameters:
     # 坐标系
     frame_id: base_link
@@ -54,19 +54,23 @@ rtabmap:
     # 三维占据地图和地形参数
     Grid/Sensor: "0"
     Grid/FromDepth: "false"
-    Grid/3D: "true"
+    # 3D SLAM 仍然由 RTAB-Map 位姿图和点云完成；这里只将给 Nav2
+    # 使用的 OccupancyGrid 改为 2D，避免将天花板和高处点云投影为障碍物。
+    Grid/3D: "false"
     Grid/RayTracing: "true"
-    Grid/CellSize: "0.10"
+    Grid/CellSize: "0.05"
     Grid/RangeMin: "0.35"
     Grid/RangeMax: "30.0"
     Grid/NormalsSegmentation: "true"
     Grid/NormalK: "20"
     Grid/MaxGroundAngle: "45"
+    Grid/MaxGroundHeight: "0.08"
+    Grid/MaxObstacleHeight: "1.0"
     Grid/ClusterRadius: "0.20"
     Grid/MinClusterSize: "10"
     Grid/GroundIsObstacle: "false"
-    Grid/NoiseFilteringRadius: "0.10"
-    Grid/NoiseFilteringMinNeighbors: "3"
+    Grid/NoiseFilteringRadius: "0.12"
+    Grid/NoiseFilteringMinNeighbors: "5"
 
     # 全局栅格更新参数是静止链路通过后的初始值，需用运动地图检查重影和漂移。
     GridGlobal/UpdateError: "0.02"

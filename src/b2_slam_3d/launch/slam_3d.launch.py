@@ -22,9 +22,12 @@ def generate_launch_description() -> LaunchDescription:
     driver_share = Path(get_package_share_directory("b2_driver_py"))
 
     params_file = str(pkg_share / "config" / "rtabmap_3d.yaml")
+    default_rviz_config = str(pkg_share / "rviz" / "slam_3d.rviz")
     driver_launch = str(driver_share / "launch" / "driver.launch.py")
 
     use_rtabmap_viz = LaunchConfiguration("use_rtabmap_viz")
+    use_rviz = LaunchConfiguration("use_rviz")
+    rviz_config = LaunchConfiguration("rviz_config")
     delete_db = LaunchConfiguration("delete_db")
     cloud_backdate = LaunchConfiguration("cloud_backdate_sec")
     database_path = LaunchConfiguration("database_path")
@@ -33,6 +36,26 @@ def generate_launch_description() -> LaunchDescription:
     lidar_frame = LaunchConfiguration("lidar_frame")
     publish_lidar_alias = LaunchConfiguration("publish_lidar_alias")
     start_driver = LaunchConfiguration("start_driver")
+    grid_topic = LaunchConfiguration("grid_topic")
+    start_grid_preflight = LaunchConfiguration("start_grid_preflight")
+
+    # Keep these as the final ROS parameter source. The historical Nav2
+    # projection remains the default; cloud export can explicitly preserve Z.
+    grid_parameters = {
+        "Grid/3D": ParameterValue(
+            LaunchConfiguration("grid_3d"), value_type=str
+        ),
+        "Grid/CellSize": "0.05",
+        "Grid/MaxGroundHeight": "0.08",
+        "Grid/MaxObstacleHeight": ParameterValue(
+            LaunchConfiguration("grid_max_obstacle_height"), value_type=str
+        ),
+        "Grid/RayTracing": ParameterValue(
+            LaunchConfiguration("grid_ray_tracing"), value_type=str
+        ),
+        "Grid/NoiseFilteringRadius": "0.12",
+        "Grid/NoiseFilteringMinNeighbors": "5",
+    }
 
     driver = IncludeLaunchDescription(
         PythonLaunchDescriptionSource(driver_launch),
@@ -56,7 +79,9 @@ def generate_launch_description() -> LaunchDescription:
             "odom_out": "/b2_slam_3d/odom_sync",
             "restamp_cloud": True,
             "restamp_odom": False,
-            "cloud_backdate_sec": ParameterValue(cloud_backdate, value_type=float),
+            "cloud_backdate_sec": ParameterValue(
+                cloud_backdate, value_type=float
+            ),
         }],
     )
 
@@ -73,6 +98,22 @@ def generate_launch_description() -> LaunchDescription:
         }],
     )
 
+    grid_preflight = Node(
+        package="b2_slam_3d",
+        executable="occupancy_grid_preflight",
+        name="mapping_grid_preflight",
+        output="screen",
+        parameters=[{
+            "map_topic": grid_topic,
+            "expected_frame": "map",
+            # 2026-09-29 实机记录中地图更新约 0.2 Hz；10 秒可覆盖正常间隔，
+            # 同时仍能在数据链真正停止时给出失败状态。
+            "stream_timeout_sec": 10.0,
+            "require_updates": True,
+        }],
+        condition=IfCondition(start_grid_preflight),
+    )
+
     # 新建地图时删除旧数据库，继续建图时保留数据库。
     rtabmap = Node(
         package="rtabmap_slam",
@@ -82,6 +123,7 @@ def generate_launch_description() -> LaunchDescription:
         output="screen",
         parameters=[
             params_file,
+            grid_parameters,
             {"database_path": ParameterValue(database_path, value_type=str)},
         ],
         remappings=[
@@ -101,6 +143,7 @@ def generate_launch_description() -> LaunchDescription:
         output="screen",
         parameters=[
             params_file,
+            grid_parameters,
             {"database_path": ParameterValue(database_path, value_type=str)},
         ],
         remappings=[
@@ -134,11 +177,30 @@ def generate_launch_description() -> LaunchDescription:
         condition=IfCondition(use_rtabmap_viz),
     )
 
+    rviz = Node(
+        package="rviz2",
+        executable="rviz2",
+        name="b2_slam_3d_rviz",
+        output="screen",
+        arguments=["-d", rviz_config],
+        condition=IfCondition(use_rviz),
+    )
+
     return LaunchDescription([
         DeclareLaunchArgument(
             "use_rtabmap_viz",
             default_value="true",
             description="是否启动 RTAB-Map 可视化界面。",
+        ),
+        DeclareLaunchArgument(
+            "use_rviz",
+            default_value="false",
+            description="是否使用项目 RViz 配置显示三维点云。",
+        ),
+        DeclareLaunchArgument(
+            "rviz_config",
+            default_value=default_rviz_config,
+            description="RViz 三维点云配置文件。",
         ),
         DeclareLaunchArgument(
             "delete_db",
@@ -180,10 +242,34 @@ def generate_launch_description() -> LaunchDescription:
             default_value="true",
             description="是否启动 B2 状态转换和安全速度桥。",
         ),
+        DeclareLaunchArgument(
+            "grid_topic",
+            default_value="/rtabmap/grid_prob_map",
+            description="待检查和保存的 RTAB-Map 二维 OccupancyGrid 话题。",
+        ),
+        DeclareLaunchArgument(
+            "grid_3d", default_value="false", choices=["true", "false"],
+            description="true 保留地图点云高度；false 沿用 Nav2 二维投影配置。",
+        ),
+        DeclareLaunchArgument(
+            "grid_max_obstacle_height", default_value="1.0",
+            description="地图点云障碍高度上限（米），0 关闭此高度裁剪。",
+        ),
+        DeclareLaunchArgument(
+            "grid_ray_tracing", default_value="true", choices=["true", "false"],
+            description="体素射线追踪；导出三维表面点云时可设 false 减少计算与内存。",
+        ),
+        DeclareLaunchArgument(
+            "start_grid_preflight",
+            default_value="true",
+            description="是否检查二维地图结构和已知/障碍区域比例。",
+        ),
         driver,
         sync,
         preflight,
+        grid_preflight,
         rtabmap,
         rtabmap_keep_db,
         viz,
+        rviz,
     ])

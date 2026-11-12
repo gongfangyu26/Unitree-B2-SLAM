@@ -13,6 +13,7 @@ setup(
         ("share/" + package_name, ["package.xml"]),
         (os.path.join("share", package_name, "launch"), glob("launch/*.launch.py")),
         (os.path.join("share", package_name, "config"), glob("config/*.yaml")),
+        (os.path.join("share", package_name, "rviz"), glob("rviz/*.rviz")),
     ],
     install_requires=["setuptools"],
     zip_safe=True,
@@ -25,6 +26,9 @@ setup(
         "console_scripts": [
             "sensor_time_sync = b2_slam_3d.sensor_time_sync:main",
             "slam_preflight = b2_slam_3d.slam_preflight:main",
+            "occupancy_grid_preflight = "
+            "b2_slam_3d.occupancy_grid_preflight:main",
+            "pointcloud_snapshot = b2_slam_3d.pointcloud_snapshot:main",
         ],
     },
 )
