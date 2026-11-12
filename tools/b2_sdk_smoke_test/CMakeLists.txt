@@ -1,0 +1,55 @@
+cmake_minimum_required(VERSION 3.16)
+project(b2_sdk_smoke_test LANGUAGES CXX)
+set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(UNITREE_SDK2_SOURCE_DIR "" CACHE PATH "Official unitree_sdk2 checkout")
+if(NOT EXISTS "${UNITREE_SDK2_SOURCE_DIR}/include/unitree/robot/b2/sport/sport_client.hpp")
+  message(FATAL_ERROR "Set UNITREE_SDK2_SOURCE_DIR to the official SDK checkout")
+endif()
+set(BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+add_subdirectory("${UNITREE_SDK2_SOURCE_DIR}" sdk)
+add_executable(b2_sdk_smoke_test main.cpp)
+target_link_libraries(b2_sdk_smoke_test PRIVATE unitree_sdk2)
+target_compile_options(b2_sdk_smoke_test PRIVATE -Wall -Wextra -Wpedantic)
+set(SDK_DDS_LIB_DIR "${UNITREE_SDK2_SOURCE_DIR}/thirdparty/lib/${CMAKE_SYSTEM_PROCESSOR}")
+configure_file(run_sdk.sh.in "${CMAKE_CURRENT_BINARY_DIR}/run_sdk.sh" @ONLY)
+add_executable(dds_write_check dds_write_check.cpp)
+target_link_libraries(dds_write_check PRIVATE unitree_sdk2)
+enable_testing()
+add_executable(test_state_monitor test_state_monitor.cpp)
+target_link_libraries(test_state_monitor PRIVATE unitree_sdk2)
+target_compile_options(test_state_monitor PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME visual_reference_guards COMMAND test_state_monitor)
+add_executable(test_keyboard_control test_keyboard_control.cpp)
+target_link_libraries(test_keyboard_control PRIVATE util)
+target_compile_options(test_keyboard_control PRIVATE -Wall -Wextra -Wpedantic)
+add_test(NAME keyboard_policy_and_terminal COMMAND test_keyboard_control)
+add_test(NAME keyboard_dry_run COMMAND b2_sdk_smoke_test enP8p1s0 keyboard 0 --dry-run)
+set_tests_properties(keyboard_dry_run PROPERTIES
+  PASS_REGULAR_EXPRESSION "keyboard until Q")
+add_test(NAME reject_keyboard_nonzero_duration
+  COMMAND b2_sdk_smoke_test enP8p1s0 keyboard 10 --dry-run)
+set_tests_properties(reject_keyboard_nonzero_duration PROPERTIES WILL_FAIL TRUE)
+add_test(NAME step_dry_run COMMAND b2_sdk_smoke_test enP8p1s0 step 10 --dry-run)
+add_test(NAME forward_dry_run COMMAND b2_sdk_smoke_test enP8p1s0 forward 0.5 --dry-run)
+add_test(NAME vision_dry_run COMMAND b2_sdk_smoke_test enP8p1s0 vision 10 --dry-run)
+set_tests_properties(vision_dry_run PROPERTIES
+  PASS_REGULAR_EXPRESSION "observe \\(no Move\\)")
+add_test(NAME vision_forward_dry_run
+  COMMAND b2_sdk_smoke_test enP8p1s0 vision-forward 0.5 --dry-run)
+set_tests_properties(vision_forward_dry_run PROPERTIES
+  PASS_REGULAR_EXPRESSION "on-site MOVE confirmation")
+add_test(NAME reject_long_vision COMMAND b2_sdk_smoke_test enP8p1s0 vision 11 --dry-run)
+add_test(NAME reject_long_vision_forward
+  COMMAND b2_sdk_smoke_test enP8p1s0 vision-forward 10 --dry-run)
+add_test(NAME reject_nonfinite_vision
+  COMMAND b2_sdk_smoke_test enP8p1s0 vision nan --dry-run)
+set_tests_properties(reject_long_vision reject_long_vision_forward reject_nonfinite_vision
+  PROPERTIES WILL_FAIL TRUE)
+add_test(NAME reject_long_move COMMAND b2_sdk_smoke_test enP8p1s0 forward 10 --dry-run)
+set_tests_properties(reject_long_move PROPERTIES WILL_FAIL TRUE)
+add_test(NAME reject_missing_execute COMMAND b2_sdk_smoke_test enP8p1s0 step 10)
+set_tests_properties(reject_missing_execute PROPERTIES WILL_FAIL TRUE)
+add_test(NAME isolated_dds_write
+  COMMAND ${CMAKE_COMMAND} -E env --unset=LD_PRELOAD
+    "LD_LIBRARY_PATH=${SDK_DDS_LIB_DIR}" $<TARGET_FILE:dds_write_check>)

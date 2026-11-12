@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+set -euo pipefail
+# Override only this child process, never append an inherited ROS DDS path.
+sdk_lib_dir="@SDK_DDS_LIB_DIR@"
+binary="@CMAKE_CURRENT_BINARY_DIR@/b2_sdk_smoke_test"
+if [[ "${1:-}" == "--check-libs" ]]; then
+    exec env -u LD_PRELOAD LD_LIBRARY_PATH="$sdk_lib_dir" ldd "$binary"
+fi
+if [[ "${1:-}" == "--dds-check" ]]; then
+    exec env -u LD_PRELOAD LD_LIBRARY_PATH="$sdk_lib_dir" "@CMAKE_CURRENT_BINARY_DIR@/dds_write_check"
+fi
+exec env -u LD_PRELOAD LD_LIBRARY_PATH="$sdk_lib_dir" "$binary" "$@"

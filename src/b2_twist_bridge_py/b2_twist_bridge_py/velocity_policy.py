@@ -10,9 +10,10 @@ class VelocityPolicy:
 
     max_linear_x: float = 0.30
     max_linear_y: float = 0.30
-    max_angular_z: float = 0.20
+    max_angular_z: float = 0.35
     min_effective_linear_x: float = 0.30
     min_effective_linear_y: float = 0.30
+    min_effective_angular_z: float = 0.35
     deadband: float = 0.005
     allow_reverse: bool = True
     allow_lateral: bool = True
@@ -40,6 +41,15 @@ class VelocityPolicy:
             or not 0.0 <= self.min_effective_linear_y <= self.max_linear_y
         ):
             raise ValueError("最小有效横移速度必须位于 0 到最大横移速度之间")
+        if (
+            not math.isfinite(self.min_effective_angular_z)
+            or not 0.0
+            <= self.min_effective_angular_z
+            <= self.max_angular_z
+        ):
+            raise ValueError(
+                "最小有效角速度必须位于 0 到最大角速度之间"
+            )
 
     @staticmethod
     def _limit(value: float, maximum: float) -> float:
@@ -85,6 +95,12 @@ class VelocityPolicy:
             shaped_y = math.copysign(self.min_effective_linear_y, shaped_y)
             notes.append(
                 f"横移速度提升到实测有效值 {self.min_effective_linear_y:.2f} m/s"
+            )
+        if 0.0 < abs(shaped_z) < self.min_effective_angular_z:
+            shaped_z = math.copysign(self.min_effective_angular_z, shaped_z)
+            notes.append(
+                "角速度提升到实测有效值 "
+                f"{self.min_effective_angular_z:.2f} rad/s"
             )
 
         return shaped_x, shaped_y, shaped_z, notes

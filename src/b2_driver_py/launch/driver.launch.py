@@ -24,6 +24,9 @@ def generate_launch_description() -> LaunchDescription:
     max_angular_z = LaunchConfiguration("max_angular_z")
     min_effective_linear_x = LaunchConfiguration("min_effective_linear_x")
     min_effective_linear_y = LaunchConfiguration("min_effective_linear_y")
+    min_effective_angular_z = LaunchConfiguration(
+        "min_effective_angular_z"
+    )
     allow_reverse = LaunchConfiguration("allow_reverse")
     allow_lateral = LaunchConfiguration("allow_lateral")
     allow_combined_translation = LaunchConfiguration(
@@ -79,6 +82,9 @@ def generate_launch_description() -> LaunchDescription:
             "min_effective_linear_y": ParameterValue(
                 min_effective_linear_y, value_type=float
             ),
+            "min_effective_angular_z": ParameterValue(
+                min_effective_angular_z, value_type=float
+            ),
             "allow_reverse": ParameterValue(allow_reverse, value_type=bool),
             "allow_lateral": ParameterValue(allow_lateral, value_type=bool),
             "allow_combined_translation": ParameterValue(
@@ -126,7 +132,7 @@ def generate_launch_description() -> LaunchDescription:
             ),
             DeclareLaunchArgument(
                 "max_angular_z",
-                default_value="0.20",
+                default_value="0.35",
                 description="B2 实测转向速度上限。",
             ),
             DeclareLaunchArgument(
@@ -138,6 +144,11 @@ def generate_launch_description() -> LaunchDescription:
                 "min_effective_linear_y",
                 default_value="0.30",
                 description="B2 实测能够产生明确位移的横移速度。",
+            ),
+            DeclareLaunchArgument(
+                "min_effective_angular_z",
+                default_value="0.35",
+                description="B2 实测能够产生明确转向的角速度。",
             ),
             DeclareLaunchArgument(
                 "allow_reverse",

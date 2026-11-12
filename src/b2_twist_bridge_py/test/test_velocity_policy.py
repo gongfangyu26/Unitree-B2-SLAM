@@ -14,11 +14,16 @@ def test_small_forward_command_uses_measured_starting_speed():
     assert notes
 
 
-def test_zero_and_rotation_are_not_promoted_to_forward_motion():
-    """原地转向和零速度不能意外产生前进速度."""
+def test_small_rotation_uses_measured_effective_angular_speed():
+    """原地转向只提升角速度，不能意外产生前进速度."""
     policy = VelocityPolicy()
     assert policy.shape(0.0, 0.0, 0.0)[:3] == (0.0, 0.0, 0.0)
-    assert policy.shape(0.0, 0.0, 0.10)[:3] == (0.0, 0.0, 0.10)
+    positive = policy.shape(0.0, 0.0, 0.10)
+    negative = policy.shape(0.0, 0.0, -0.10)
+    assert positive[:3] == (0.0, 0.0, 0.35)
+    assert negative[:3] == (0.0, 0.0, -0.35)
+    assert positive[3]
+    assert negative[3]
 
 
 def test_verified_reverse_and_lateral_use_measured_speed():
@@ -60,3 +65,12 @@ def test_minimum_lateral_speed_cannot_exceed_limit():
     """横移起步速度不能超过横移限速."""
     with pytest.raises(ValueError, match="最小有效横移"):
         VelocityPolicy(max_linear_y=0.30, min_effective_linear_y=0.31)
+
+
+def test_minimum_angular_speed_cannot_exceed_limit():
+    """转向起步角速度不能超过角速度限幅."""
+    with pytest.raises(ValueError, match="最小有效角速度"):
+        VelocityPolicy(
+            max_angular_z=0.35,
+            min_effective_angular_z=0.36,
+        )

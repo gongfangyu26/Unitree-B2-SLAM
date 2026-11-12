@@ -26,9 +26,10 @@ class SafeTwistBridge(Node):
         # 2026-09-08/09 实机确认前后和横移均需 0.30 m/s 才可靠形成位移。
         self.declare_parameter("max_linear_x", 0.30)
         self.declare_parameter("max_linear_y", 0.30)
-        self.declare_parameter("max_angular_z", 0.20)
+        self.declare_parameter("max_angular_z", 0.35)
         self.declare_parameter("min_effective_linear_x", 0.30)
         self.declare_parameter("min_effective_linear_y", 0.30)
+        self.declare_parameter("min_effective_angular_z", 0.35)
         self.declare_parameter("deadband", 0.005)
         # 方向已经完成单轴实机验收，但节点上电仍锁定，不能自动开始运动。
         self.declare_parameter("allow_reverse", True)
@@ -50,6 +51,9 @@ class SafeTwistBridge(Node):
         )
         self.min_effective_linear_y = float(
             self.get_parameter("min_effective_linear_y").value
+        )
+        self.min_effective_angular_z = float(
+            self.get_parameter("min_effective_angular_z").value
         )
         self.deadband = float(self.get_parameter("deadband").value)
         self.allow_reverse = bool(self.get_parameter("allow_reverse").value)
@@ -83,6 +87,7 @@ class SafeTwistBridge(Node):
                 max_angular_z=self.max_angular_z,
                 min_effective_linear_x=self.min_effective_linear_x,
                 min_effective_linear_y=self.min_effective_linear_y,
+                min_effective_angular_z=self.min_effective_angular_z,
                 deadband=self.deadband,
                 allow_reverse=self.allow_reverse,
                 allow_lateral=self.allow_lateral,

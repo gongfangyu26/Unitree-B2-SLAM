@@ -26,6 +26,10 @@ setup(
         'console_scripts': [
             'twist_bridge = b2_twist_bridge_py.twist_bridge:main',
             'safe_motion_test = b2_twist_bridge_py.safe_motion_test:main',
+            'terrain_motion_test = '
+            'b2_twist_bridge_py.terrain_motion_test:main',
+            'stair_remote_control = '
+            'b2_twist_bridge_py.stair_remote_control:main',
         ],
     },
 )
