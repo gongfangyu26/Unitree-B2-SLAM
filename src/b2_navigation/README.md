@@ -1,361 +1,206 @@
-# b2_navigation 功能包
+# B2 二维自主导航基础包
 
-> 当前实机基线见 `docs/B2_DEBUG_LOG_2026-09-08.md`，下一阶段命令见
-> `docs/SLAM_INSPECTION_NEXT_STAGE.md`。旧示例中的 `/home/nvidia/b2_code` 路径仅供
-> 历史参考，不是当前工作空间路径。
+`b2_navigation` 将已知二维占据地图、B2 里程计、RoboSense 点云和 Nav2
+连接起来。当前实现支持两种定位方式：
 
-2026-09-08 实测 B2 需要 `0.30 m/s` 才能可靠前进。当前 Nav2 上限为
-`0.30 m/s`、转向上限为 `0.20 rad/s`。后退和左右横移已完成单轴实机验收，
-但 DWB 横移采样、BackUp 行为和 Nav2 闭环仍保持待测状态。
+- `amcl`：加载二维地图，使用点云投影得到的 `/scan` 定位；
+- `rtabmap`：加载既有三维 RTAB-Map 数据库，由 RTAB-Map 提供
+  `map -> odom`，二维地图仍由 `map_server` 提供给 Nav2。
 
-## 概述
+2026-10-13/16 已有实机阶段调试记录；10-30 走廊录点受代价图阻碍、RViz 卡顿，
+本轮自主巡航未执行。稳定定位、转向、避障及整圈任务仍未验收。
+最新状态见[代码交接说明](../../docs/B2_CODE_REVIEW_2026-11-12.md)，
+下一轮按[11 月 13 日清单](../../docs/B2_TEST_PLAN_2026-11-13.md)分级检查。
 
-`b2_navigation` 是专为 Unitree B2 机器狗设计的 ROS 2 导航功能包，基于 **Nav2** 框架实现完整的 2D 自主导航能力。该包集成了 AMCL 定位、全局路径规划、局部路径跟踪和行为树导航等核心功能。
+## 1. 数据和控制路径
 
-### 核心功能
+```text
+/rslidar_points -> 时间戳兼容 -> pointcloud_to_laserscan -> /scan
+二维地图 YAML -> map_server -> /map
+/odom + /scan -> AMCL 或 RTAB-Map -> map -> odom
 
-| 功能模块 | 说明 |
-|---------|------|
-| **AMCL 定位** | 自适应蒙特卡洛定位，实现机器人在已知地图中的位姿估计 |
-| **全局规划** | 基于 NavFn 的全局路径规划，生成从起点到目标点的最优路径 |
-| **局部控制** | DWB 局部规划器，实现动态避障和路径跟踪 |
-| **行为树导航** | 基于 BT 的导航行为编排，支持多种导航任务 |
-| **生命周期管理** | Nav2 生命周期节点管理，确保节点正确启动和关闭 |
-
----
-
-## 目录结构
-
-```
-b2_navigation/
-├── b2_navigation/              # Python 源代码目录
-│   └── __init__.py
-├── config/                     # 配置文件目录
-│   └── nav2_params.yaml        # Nav2 完整参数配置
-├── launch/                     # 启动文件目录
-│   └── navigation.launch.py    # 一键启动导航
-├── rviz/                       # RViz 配置目录
-│   └── navigation.rviz         # 导航专用 RViz 配置
-├── resource/                   # 资源文件
-├── test/                       # 测试文件
-├── package.xml                 # ROS 包声明
-├── setup.cfg                   # Python 安装配置
-└── setup.py                    # Python 包安装脚本
+Nav2 -> /cmd_vel_nav
+     -> navigation_gate（默认锁定）
+     -> /cmd_vel
+     -> b2_safe_twist_bridge（默认锁定）
+     -> /api/sport/request
 ```
 
----
+安全链同时检查：
 
-## 安装与依赖
+- `/b2/state_ok`：B2 状态是否有效且新鲜；
+- `/b2_navigation/map_ok`：二维地图结构是否通过检查；
+- `/scan`：二维雷达是否有效且新鲜；
+- `map -> base_link`：定位 TF 是否存在且新鲜；
+- RTAB-Map 定位模式下还检查 `/b2_slam/preflight_ok`。
 
-### 依赖包
+只有 `/b2/autonomy_ok=true` 时才能解锁导航安全门。即使导航安全门已解锁，
+`b2_safe_twist_bridge` 仍保持锁定，必须由现场人员再次显式解锁。
 
-```xml
-<!-- 核心依赖 -->
-<depend>rclpy</depend>
-
-<!-- Nav2 核心组件 -->
-<exec_depend>nav2_amcl</exec_depend>
-<exec_depend>nav2_map_server</exec_depend>
-<exec_depend>nav2_planner</exec_depend>
-<exec_depend>nav2_controller</exec_depend>
-<exec_depend>nav2_bt_navigator</exec_depend>
-<exec_depend>nav2_behaviors</exec_depend>
-<exec_depend>nav2_lifecycle_manager</exec_depend>
-
-<!-- 辅助依赖 -->
-<exec_depend>pointcloud_to_laserscan</exec_depend>
-<exec_depend>rviz2</exec_depend>
-<exec_depend>ros2launch</exec_depend>
-```
-
-### 编译
+## 2. 编译
 
 ```bash
-cd /home/nvidia/b2_code/b2_ws
-colcon build --packages-select b2_navigation --symlink-install
+cd ~/Unitree-B2-SLAM
+source /opt/ros/humble/setup.bash
+colcon build --packages-select \
+  b2_driver_py b2_twist_bridge_py b2_slam b2_slam_3d b2_navigation \
+  --symlink-install
 source install/setup.bash
 ```
 
----
+Jetson 上的仓库路径若不同，以实际路径为准，不要照抄电脑路径。
 
-## 启动方式
+## 3. 启动 AMCL 导航
 
-### 一键启动完整导航系统
+首次必须保持默认锁定，只观察数据，不发送目标：
 
 ```bash
-ros2 launch b2_navigation navigation.launch.py map:=/path/to/your/map.yaml
+ros2 launch b2_navigation navigation.launch.py \
+  map:=/home/jetson/b2_maps/b2_small_loop_2d.yaml \
+  localization_mode:=amcl \
+  start_driver:=true \
+  use_rviz:=false
 ```
 
-### 启动参数
+如果同一 ROS_DOMAIN_ID 中已经存在唯一的 `b2_driver_py` 和
+`b2_safe_twist_bridge`，改用：
+
+```bash
+ros2 launch b2_navigation navigation.launch.py \
+  map:=/home/jetson/b2_maps/b2_small_loop_2d.yaml \
+  localization_mode:=amcl \
+  start_driver:=false \
+  use_rviz:=false
+```
+
+`start_driver` 不能凭感觉选择。启动前先执行 `ros2 node list`，不得出现重复驱动
+或重复 TF 发布者。
+
+## 4. 启动 RTAB-Map 定位导航
+
+该模式必须同时提供已有二维地图和已有三维数据库：
+
+```bash
+ros2 launch b2_navigation navigation.launch.py \
+  map:=/home/jetson/b2_maps/b2_small_loop_2d.yaml \
+  localization_mode:=rtabmap \
+  database_path:=/home/jetson/b2_maps/b2_small_loop_3d.db \
+  start_driver:=true \
+  use_rviz:=false
+```
+
+启动文件会在启动节点前检查 YAML 和数据库文件是否存在。该模式使用
+`Mem/IncrementalMemory=false` 和 `Mem/InitWMWithAllNodes=true`，用于定位而不是
+继续建图。不得同时启动 AMCL 和另一个发布 `map -> odom` 的定位节点。
+
+## 5. 启动后只读检查
+
+```bash
+ros2 topic echo /b2_navigation/map_report --once
+ros2 topic echo /b2/autonomy_reason
+ros2 topic echo /b2/autonomy_ok
+ros2 topic hz /scan
+ros2 run tf2_ros tf2_echo map base_link
+ros2 lifecycle get /planner_server
+ros2 lifecycle get /controller_server
+ros2 lifecycle get /bt_navigator
+ros2 action list | grep navigate_to_pose
+```
+
+在所有检查通过前，禁止调用解锁服务。导航安全门默认状态可用以下命令确认：
+
+```bash
+ros2 topic echo /b2_navigation/armed --once
+ros2 topic echo /b2/control/enabled --once
+```
+
+两者都应为 `false`。
+
+## 6. 纯地图视图与巡航点采集
+
+`navigation.launch.py` 默认打开 `rviz/navigation_clean.rviz`。该视图只显示二维
+地图、机器人、规划路径和已记录巡航点，不显示红色实时激光、AMCL 粒子、代价
+地图或 TF。完整诊断视图仍保留在 `rviz/navigation.rviz`，可通过
+`rviz_config:=<文件路径>` 切换。
+
+纯地图工具栏中的 `Publish Point` 只向 `/clicked_point` 发布坐标，不会发送导航
+目标，也不会解锁机器人。`waypoint_recorder` 会使用全局代价地图拒绝地图外、障碍
+区、未知区和膨胀区内的点击，并以 A、B、C 的顺序显示接受的点。默认按闭环路线
+让每个点朝向下一个点。
+
+```bash
+# 撤销最后一个点
+ros2 service call /b2_navigation/waypoints/undo std_srvs/srv/Trigger "{}"
+
+# 清空全部点
+ros2 service call /b2_navigation/waypoints/clear std_srvs/srv/Trigger "{}"
+
+# 保存为现有巡检任务可读取的 YAML
+ros2 service call /b2_navigation/waypoints/save std_srvs/srv/Trigger "{}"
+```
+
+默认输出文件为 `~/b2_maps/b2_patrol_waypoints.yaml`。保存后仍须在控制锁关闭状态
+下逐段调用规划器验证，不得直接作为实机路线运行。
+
+## 7. 双重人工解锁和立即停车
+
+以下命令只能在现场清场、遥控器/急停可用、目标距离不超过 0.5 m、
+`/b2/autonomy_ok` 稳定为 `true` 后执行。
+
+先解锁导航安全门：
+
+```bash
+ros2 service call /b2/navigation/set_armed \
+  std_srvs/srv/SetBool "{data: true}"
+```
+
+再解锁 B2 速度桥：
+
+```bash
+ros2 service call /b2/control/set_enabled \
+  std_srvs/srv/SetBool "{data: true}"
+```
+
+任何异常先关闭底层速度桥，再关闭导航门：
+
+```bash
+ros2 service call /b2/control/set_enabled \
+  std_srvs/srv/SetBool "{data: false}"
+ros2 service call /b2/navigation/set_armed \
+  std_srvs/srv/SetBool "{data: false}"
+```
+
+导航门默认最多解锁 60 秒；状态、地图、雷达、定位 TF 或命令超时会自动锁定并
+发送零速度。节点退出也会发送零速度，但现场仍必须保留人工急停手段。
+
+## 8. 主要启动参数
 
 | 参数 | 默认值 | 说明 |
-|------|--------|------|
-| `map` | 无（必填） | 地图 YAML 文件路径 |
-| `use_rviz` | `true` | 是否启动 RViz 可视化 |
-
-### 启动流程详解
-
-启动顺序（按执行顺序）：
-
-1. **b2_driver** - 底层驱动，提供 `/odom`、TF、`/joint_states`
-2. **pointcloud_timestamp_fix** - 修复雷达点云时间戳
-3. **pointcloud_to_laserscan** - 3D点云转2D激光扫描
-4. **map_server** - 加载地图文件
-5. **amcl** - AMCL 定位节点
-6. **localization_lifecycle** - 定位模块生命周期管理
-7. **(延迟3秒)** planner_server + controller_server + behavior_server + bt_navigator
-8. **navigation_lifecycle** - 导航模块生命周期管理
-9. **rviz2** - 可视化 (Fixed Frame = map)
-
-> **关键设计**：导航节点延迟 3 秒启动，确保 map_server 和 amcl 先进入 ACTIVE 状态
-
----
-
-## 核心组件配置
-
-### 1. AMCL 定位参数
-
-```yaml
-amcl:
-  ros__parameters:
-    robot_model_type: "nav2_amcl::OmniMotionModel"  # 全向运动模型
-    laser_model_type: "likelihood_field"             # 似然场模型
-    
-    # 运动模型噪声参数
-    alpha1: 0.3  # 旋转噪声
-    alpha2: 0.3  # 旋转噪声
-    alpha3: 0.1  # 平移噪声
-    alpha4: 0.1  # 平移噪声
-    alpha5: 0.2  # 额外噪声
-    
-    # 粒子滤波器参数
-    min_particles: 800    # 最小粒子数
-    max_particles: 3000   # 最大粒子数
-    update_min_d: 0.1     # 平移更新阈值 (m)
-    update_min_a: 0.1     # 旋转更新阈值 (rad)
-```
-
-### 2. 全局规划器
-
-```yaml
-planner_server:
-  ros__parameters:
-    planner_plugins: ["GridBased"]
-    GridBased:
-      plugin: "nav2_navfn_planner/NavfnPlanner"
-      tolerance: 0.5        # 目标容差 (m)
-      use_astar: false      # 使用 Dijkstra 算法
-      allow_unknown: true   # 允许穿越未知区域
-```
-
-### 3. 局部控制器 (DWB)
-
-```yaml
-controller_server:
-  ros__parameters:
-    controller_plugins: ["FollowPath"]
-    FollowPath:
-      plugin: "dwb_core::DWBLocalPlanner"
-      
-      # 速度限制 (适配 B2 机身)
-      min_vel_x: -0.30
-      max_vel_x: 0.30
-      min_vel_y: -0.30
-      max_vel_y: 0.30
-      max_vel_theta: 0.50
-      
-      # 加速度限制
-      acc_lim_x: 0.30
-      acc_lim_y: 0.30
-      acc_lim_theta: 1.0
-      
-      # 评价器权重
-      critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
-```
-
-### 4. 代价地图配置
-
-#### 局部代价地图
-
-```yaml
-local_costmap:
-  local_costmap:
-    ros__parameters:
-      width: 4.0           # 宽度 (m)
-      height: 4.0          # 高度 (m)
-      resolution: 0.05     # 分辨率 (m)
-      robot_radius: 0.48   # 机器人半径 (适配 B2)
-      rolling_window: true # 滚动窗口模式
-```
-
-#### 全局代价地图
-
-```yaml
-global_costmap:
-  global_costmap:
-    ros__parameters:
-      resolution: 0.05     # 分辨率 (m)
-      robot_radius: 0.48   # 机器人半径
-      track_unknown_space: true
-```
-
----
-
-## B2 机身适配参数
-
-B2 机身尺寸：**1098mm × 450mm × 645mm**
-
-| 参数 | 值 | 说明 |
-|------|-----|------|
-| `robot_radius` | 0.48m | 机器人碰撞半径（含安全余量） |
-| `max_vel_x` | 0.30 m/s | 最大线速度 |
-| `max_vel_y` | 0.30 m/s | 最大横向速度 |
-| `max_vel_theta` | 0.50 rad/s | 最大角速度 |
-| `obstacle_min_range` | 0.50m | 障碍物最小检测距离（过滤雷达近距噪声） |
-
----
-
-## 话题接口
-
-### 关键话题
-
-| 话题名 | 消息类型 | 说明 |
-|--------|---------|------|
-| `/scan` | `sensor_msgs/LaserScan` | 激光扫描数据 |
-| `/odom` | `nav_msgs/Odometry` | 里程计数据 |
-| `/cmd_vel` | `geometry_msgs/Twist` | 速度指令 |
-| `/amcl_pose` | `geometry_msgs/PoseWithCovarianceStamped` | AMCL 估计位姿 |
-| `/map` | `nav_msgs/OccupancyGrid` | 地图数据 |
-
-### 服务接口
-
-| 服务名 | 服务类型 | 说明 |
-|--------|---------|------|
-| `/navigate_to_pose` | `NavigateToPose` | 导航到指定位姿 |
-| `/navigate_through_poses` | `NavigateThroughPoses` | 多点导航 |
-| `/reinitialize_global_localization` | `ReinitializeGlobalLocalization` | 重新初始化定位 |
-| `/clear_costmap` | `ClearCostmap` | 清除代价地图 |
-
----
-
-## 使用指南
-
-### 1. 准备地图
-
-确保已有通过 `b2_slam` 创建的地图文件（`.yaml` + `.pgm`）。
-
-### 2. 启动导航
-
-```bash
-ros2 launch b2_navigation navigation.launch.py map:=/path/to/map.yaml
-```
-
-### 3. 设置初始位姿
-
-在 RViz 中使用 **2D Pose Estimate** 工具设置机器人初始位置，或通过命令行：
-
-```bash
-ros2 topic pub /initialpose geometry_msgs/msg/PoseWithCovarianceStamped "{
-  header: {frame_id: 'map'},
-  pose: {
-    pose: {
-      position: {x: 0.0, y: 0.0, z: 0.0},
-      orientation: {w: 1.0, x: 0.0, y: 0.0, z: 0.0}
-    },
-    covariance: [0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.25, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.06853891945200942]
-  }
-}" --once
-```
-
-### 4. 发送导航目标
-
-在 RViz 中使用 **2D Nav Goal** 工具点击目标位置，或通过命令行：
-
-```bash
-ros2 action send_goal /navigate_to_pose nav2_msgs/action/NavigateToPose "{
-  goal: {
-    pose: {
-      header: {frame_id: 'map'},
-      pose: {
-        position: {x: 5.0, y: 3.0, z: 0.0},
-        orientation: {w: 1.0, x: 0.0, y: 0.0, z: 0.0}
-      }
-    }
-  }
-}"
-```
-
----
-
-## 常见问题排查
-
-### 问题1：导航无法启动
-
-**现象**：`lifecycle_manager_navigation` 节点报错
-
-**排查步骤**：
-```bash
-# 检查节点状态
-ros2 lifecycle list /lifecycle_manager_localization
-ros2 lifecycle list /lifecycle_manager_navigation
-
-# 检查 map_server 是否正确加载
-ros2 topic echo /map --no-header
-```
-
-**解决方案**：确保地图文件路径正确，map.yaml 中 pgm 路径正确
-
-### 问题2：定位漂移
-
-**现象**：机器人估计位置与实际位置偏差逐渐增大
-
-**排查步骤**：
-- 检查激光数据质量：`ros2 topic echo /scan`
-- 检查 TF 变换：`ros2 tf tree`
-- 调整 AMCL 参数：增加粒子数，调整运动模型噪声
-
-### 问题3：避障不及时
-
-**现象**：机器人无法及时避开障碍物
-
-**解决方案**：
-- 调整局部代价地图参数，增大 `obstacle_max_range`
-- 调整 DWB 控制器的速度和加速度限制
-- 检查 `inflation_radius` 参数
-
-### 问题4：自身被识别为障碍物
-
-**现象**：机器人周围出现障碍区域
-
-**解决方案**：
-- 确认 `robot_radius` 参数正确（B2 建议 0.48m）
-- 检查 `obstacle_min_range` 参数，过滤雷达近距噪声
-
----
-
-## 性能优化建议
-
-### 1. 计算资源优化
-
-| 参数调整 | 说明 |
-|----------|------|
-| 降低 `controller_frequency` | 从 20Hz 降至 15Hz，减少 CPU 负载 |
-| 增大代价地图 `resolution` | 从 0.05m 增至 0.1m，减少计算量 |
-| 减小局部代价地图 `width/height` | 从 4m 降至 3m |
-
-### 2. 导航精度优化
-
-| 参数调整 | 说明 |
-|----------|------|
-| 减小 `xy_goal_tolerance` | 提高目标到达精度 |
-| 增大 AMCL `min_particles` | 提高定位稳定性 |
-| 调整 DWB `sim_time` | 增加轨迹模拟时间 |
-
----
-
-## 参考资料
-
-- [Nav2 Documentation](https://navigation.ros.org/)
-- [Go2 Tutorial Navigation](https://ztl3106742440-hub.github.io/go2-tutorial/04-perception/12-nav2-baseline/)
-- [AMCL Wiki](https://navigation.ros.org/configuration/packages/configuring-amcl.html)
-- [DWB Local Planner](https://navigation.ros.org/configuration/packages/configuring-dwb.html)
+|---|---:|---|
+| `map` | 必填 | 二维地图 YAML |
+| `localization_mode` | `amcl` | `amcl` 或 `rtabmap` |
+| `database_path` | `~/.ros/b2_rtabmap_3d.db` | RTAB-Map 定位数据库 |
+| `start_driver` | `true` | 已有驱动时必须设为 `false` |
+| `use_rviz` | `true` | Jetson 无显示时设为 `false` |
+| `rviz_config` | `navigation_clean.rviz` | 纯地图视图或完整调试视图 |
+| `start_waypoint_recorder` | `true` | 启动只读巡航点采集工具 |
+| `cloud_topic` | `/rslidar_points` | 输入点云 |
+| `lidar_frame` | `rslidar` | 点云实际坐标系 |
+| `max_linear_x/y` | `0.30` | 速度桥线速度上限 |
+| `max_angular_z` | `0.35` | 速度桥角速度上限 |
+| `min_effective_angular_z` | `0.35` | 2026-10-13 实测可形成明确左右转的最小角速度 |
+| `max_armed_duration_sec` | `60.0` | 导航门单次最长解锁时间 |
+
+## 9. 当前限制
+
+- 2026-09-09 的单次短运动表明 B2 在 `0.30 m/s` 才形成可靠前后/横向位移，
+  但 Nav2 连续小速度经过最小有效速度整形后的闭环行为尚未验证；首次实机必须先
+  观察 `/cmd_vel_nav`，再决定是否解锁。
+- DWB 首轮关闭横移采样，先验证前进和小角度转向；左右横移接口成功不等于
+  Nav2 全向控制已经成功。
+- `base_link` 在坡道上的姿态、二维激光高度过滤、地图漂移和坡道占据栅格均需
+  单独验证。
+- 本包中的 `twist_mux.yaml` 当前未被主启动文件使用，实际安全路径由
+  `navigation_gate` 和 `b2_safe_twist_bridge` 两级锁实现。
+
+完整实机步骤见 `docs/B2_NAV2_SLAM_DEBUG_GUIDE_2026-09-30.md`。

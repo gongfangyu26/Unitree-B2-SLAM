@@ -15,9 +15,11 @@
   <depend>std_msgs</depend>
   <depend>std_srvs</depend>
   <depend>sensor_msgs</depend>
+  <depend>sensor_msgs_py</depend>
   <depend>tf2_ros</depend>
   <depend>action_msgs</depend>
   <depend>nav2_msgs</depend>
+  <depend>nav_msgs</depend>
   <depend>b2_twist_bridge_py</depend>
 
   <exec_depend>b2_driver_py</exec_depend>

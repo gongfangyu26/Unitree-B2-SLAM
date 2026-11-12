@@ -12,7 +12,11 @@ setup(
         ("share/" + package_name, ["README.md", "OPERATION_GUIDE.md"]),
         (
             "share/" + package_name + "/launch",
-            ["launch/mapping_3d.launch.py", "launch/autonomous_inspection.launch.py"],
+            [
+                "launch/mapping_3d.launch.py",
+                "launch/autonomous_inspection.launch.py",
+                "launch/corridor_patrol.launch.py",
+            ],
         ),
         (
             "share/" + package_name + "/config",
@@ -20,6 +24,7 @@ setup(
                 "config/patrol_waypoints.yaml",
                 "config/inspection_targets.yaml",
                 "config/photo_quality.yaml",
+                "config/corridor_no_recovery.xml",
             ],
         ),
     ],
@@ -34,9 +39,11 @@ setup(
         "console_scripts": [
             "photo_quality_node = b2_factory_inspection.photo_quality_node:main",
             "mission_manager = b2_factory_inspection.mission_manager:main",
+            "corridor_patrol = b2_factory_inspection.corridor_patrol:main",
             "aruco_target_locator = b2_factory_inspection.aruco_target_locator:main",
             "safety_monitor = b2_factory_inspection.safety_monitor:main",
             "jetson_board_test = b2_factory_inspection.jetson_board_test:main",
+            "front_lidar_distance = b2_factory_inspection.front_lidar_distance:main",
         ],
     },
 )

@@ -27,6 +27,11 @@ setup(
         ],
     },
     entry_points={
-        "console_scripts": [],
+        "console_scripts": [
+            "navigation_gate = b2_navigation.navigation_gate:main",
+            "navigation_safety_monitor = "
+            "b2_navigation.navigation_safety_monitor:main",
+            "waypoint_recorder = b2_navigation.waypoint_recorder:main",
+        ],
     },
 )

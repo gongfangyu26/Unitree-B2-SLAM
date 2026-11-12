@@ -41,14 +41,18 @@ class AutonomySafetyMonitor(Node):
         self.slam_preflight_timeout_sec = float(
             self.get_parameter("slam_preflight_timeout_sec").value
         )
-        self.scan_timeout_sec = float(self.get_parameter("scan_timeout_sec").value)
+        self.scan_timeout_sec = float(
+            self.get_parameter("scan_timeout_sec").value
+        )
         self.scan_stamp_timeout_sec = float(
             self.get_parameter("scan_stamp_timeout_sec").value
         )
         self.transform_timeout_sec = float(
             self.get_parameter("transform_timeout_sec").value
         )
-        self.min_scan_samples = int(self.get_parameter("min_scan_samples").value)
+        self.min_scan_samples = int(
+            self.get_parameter("min_scan_samples").value
+        )
         self.require_scan = bool(self.get_parameter("require_scan").value)
         self.require_localization = bool(
             self.get_parameter("require_localization").value
@@ -63,7 +67,10 @@ class AutonomySafetyMonitor(Node):
             self.scan_stamp_timeout_sec,
             self.transform_timeout_sec,
         )
-        if not all(math.isfinite(value) and value > 0.0 for value in timeout_values):
+        if not all(
+            math.isfinite(value) and value > 0.0
+            for value in timeout_values
+        ):
             raise RuntimeError("安全监视器超时参数必须是大于零的有限数值")
         if self.min_scan_samples < 2:
             raise RuntimeError("min_scan_samples 必须至少为 2")
@@ -231,11 +238,14 @@ class AutonomySafetyMonitor(Node):
         autonomy_ok = not reasons
         reason = "自主运行条件已满足" if autonomy_ok else "；".join(reasons)
         self.ok_pub.publish(Bool(data=autonomy_ok))
-        if reason != self.last_reason or now - self.last_reason_publish_time >= 1.0:
+        publish_due = now - self.last_reason_publish_time >= 1.0
+        if reason != self.last_reason or publish_due:
             self.reason_pub.publish(String(data=reason))
             if reason != self.last_reason:
-                log = self.get_logger().info if autonomy_ok else self.get_logger().warn
-                log(reason)
+                if autonomy_ok:
+                    self.get_logger().info(reason)
+                else:
+                    self.get_logger().warn(reason)
             self.last_reason = reason
             self.last_reason_publish_time = now
 

@@ -1,0 +1,13 @@
+<!-- Periodic replanning only. Any planning/control failure aborts the goal.
+     No autonomous Spin or BackUp recovery is invoked by this tree.
+     Normal FollowPath steering can still rotate the robot. -->
+<root main_tree_to_execute="MainTree">
+  <BehaviorTree ID="MainTree">
+    <PipelineSequence name="CorridorPatrol">
+      <RateController hz="1.0">
+        <ComputePathToPose goal="{goal}" path="{path}" planner_id="GridBased"/>
+      </RateController>
+      <FollowPath path="{path}" controller_id="FollowPath"/>
+    </PipelineSequence>
+  </BehaviorTree>
+</root>
